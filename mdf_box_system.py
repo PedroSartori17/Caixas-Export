@@ -39,8 +39,11 @@ DENSIDADE_PADRAO       = 700.0
 # Furação de marcação
 DIAMETRO_FURO_MM       = 5.0
 PROF_FURO_MM           = 5.0     # profundidade (referência técnica no DXF)
-MARGEM_FURO_MM         = 9.0
-ESP_MAX_FUROS_MM       = 80.0    # espaçamento máximo entre furos
+MARGEM_FURO_MM         = 9.0     # distância do furo à borda em que a linha está alinhada
+MARGEM_PERP_MM         = 70.0    # distância do 1º/último furo à borda perpendicular
+N_FUROS_PADRAO         = 6       # furos por borda (peças >= MIN_DIM_FUROS_MM)
+N_FUROS_PEQUENO        = 2       # furos por borda (peças <  MIN_DIM_FUROS_MM)
+MIN_DIM_FUROS_MM       = 200.0   # limiar de largura para definir n° de furos
 
 # Pegadores
 PEGADOR_LARGURA_MM     = 120.0
@@ -142,26 +145,39 @@ def calcular_peso_produto(
 
 # ── Geometrias DXF ─────────────────────────────────────────────
 
-def _furos_na_linha(inicio: float, fim: float,
-                    margem: float, esp_max: float) -> List[float]:
-    """Retorna posições de furos ao longo de um segmento."""
+def _furos_na_linha(
+    inicio      : float,
+    fim         : float,
+    margem_perp : float = MARGEM_PERP_MM,
+    n_furos     : int   = N_FUROS_PADRAO,
+) -> List[float]:
+    """
+    Retorna posições de furos ao longo de um segmento.
+
+    Regras:
+      - Primeiro furo : a margem_perp do início (borda perpendicular)
+      - Último furo   : a margem_perp do fim   (borda perpendicular oposta)
+      - n_furos furos igualmente espaçados entre eles
+    """
     comprimento = fim - inicio
-    espaco      = comprimento - 2 * margem
 
-    if espaco <= 0:
-        return [inicio + comprimento / 2.0]
+    # Segmento muito curto: furo central único
+    if comprimento <= 2 * margem_perp or n_furos < 2:
+        return [round(inicio + comprimento / 2.0, 3)]
 
-    n = max(2, int(espaco / esp_max) + 2)
-    passo = espaco / (n - 1)
-    return [round(inicio + margem + i * passo, 3) for i in range(n)]
+    passo = (comprimento - 2 * margem_perp) / (n_furos - 1)
+    return [round(inicio + margem_perp + i * passo, 3) for i in range(n_furos)]
 
 
 def calcular_posicoes_furos(
-    largura_mm : float,
-    altura_mm  : float,
-    bordas     : str   = "todas",   # "todas" | "inferior" | "inferior_laterais"
-    margem_mm  : float = MARGEM_FURO_MM,
-    esp_max_mm : float = ESP_MAX_FUROS_MM,
+    largura_mm  : float,
+    altura_mm   : float,
+    bordas      : str   = "todas",   # "todas" | "inferior" | "inferior_laterais"
+    margem_mm   : float = MARGEM_FURO_MM,
+    margem_perp : float = MARGEM_PERP_MM,
+    n_padrao    : int   = N_FUROS_PADRAO,
+    n_pequeno   : int   = N_FUROS_PEQUENO,
+    min_dim_mm  : float = MIN_DIM_FUROS_MM,
 ) -> List[Tuple[float, float]]:
     """
     Calcula posições dos furos de marcação conforme o tipo de chapa.
@@ -170,24 +186,36 @@ def calcular_posicoes_furos(
         "todas"             → 4 lados (tampo)
         "inferior"          → só borda inferior (lat. menor)
         "inferior_laterais" → inferior + esq./dir. (lat. maior)
+
+    Quantidade de furos por borda:
+        largura da borda >= min_dim_mm → n_padrao  (padrão: 6)
+        largura da borda <  min_dim_mm → n_pequeno (padrão: 2)
+
+    Posicionamento ao longo da borda:
+        1º furo a margem_perp da borda perpendicular esquerda/inferior
+        último furo a margem_perp da borda perpendicular direita/superior
     """
     furos: set = set()
 
+    # Todas as bordas sempre com n_padrao furos (padrão: 6)
+    n_horiz = n_padrao
+    n_vert  = n_padrao
+
     if bordas in ("todas", "inferior", "inferior_laterais"):
-        # Borda inferior
-        for x in _furos_na_linha(0, largura_mm, margem_mm, esp_max_mm):
-            furos.add((x, margem_mm))
+        # Borda inferior (y = margem_mm)
+        for x in _furos_na_linha(0, largura_mm, margem_perp, n_horiz):
+            furos.add((x, round(margem_mm, 3)))
 
     if bordas == "todas":
-        # Borda superior
-        for x in _furos_na_linha(0, largura_mm, margem_mm, esp_max_mm):
+        # Borda superior (y = altura - margem_mm)
+        for x in _furos_na_linha(0, largura_mm, margem_perp, n_horiz):
             furos.add((x, round(altura_mm - margem_mm, 3)))
 
     if bordas in ("todas", "inferior_laterais"):
-        # Bordas esquerda e direita
-        for y in _furos_na_linha(0, altura_mm, margem_mm, esp_max_mm):
-            furos.add((margem_mm,                          round(y, 3)))
-            furos.add((round(largura_mm - margem_mm, 3),   round(y, 3)))
+        # Bordas esquerda e direita (x = margem_mm e x = largura - margem_mm)
+        for y in _furos_na_linha(0, altura_mm, margem_perp, n_vert):
+            furos.add((round(margem_mm, 3),               round(y, 3)))
+            furos.add((round(largura_mm - margem_mm, 3),  round(y, 3)))
 
     return sorted(furos)
 
