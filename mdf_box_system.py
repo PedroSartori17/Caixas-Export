@@ -284,6 +284,43 @@ def adicionar_anotacao(msp, nome: str, largura_mm: float,
     )
 
 
+def adicionar_nome_produto(
+    msp,
+    nome_produto: str,
+    largura_mm  : float,
+    altura_mm   : float,
+    layer       : str = "NOME",
+) -> None:
+    """
+    Insere o nome do produto centralizado no meio da chapa.
+
+    O texto é posicionado no centro geométrico da peça,
+    alinhado ao centro horizontal e vertical.
+    Tamanho da fonte: 1.5% da maior dimensão (mín. 8 mm, máx. 40 mm).
+    """
+    if not nome_produto or not nome_produto.strip():
+        return
+
+    cx = largura_mm / 2.0
+    cy = altura_mm  / 2.0
+
+    # Altura do texto proporcional à peça
+    altura_txt = max(8.0, min(40.0, max(largura_mm, altura_mm) * 0.015))
+
+    texto = msp.add_text(
+        nome_produto.strip().upper(),
+        dxfattribs={
+            "layer" : layer,
+            "height": altura_txt,
+            "style" : "Standard",
+        },
+    )
+    texto.set_placement(
+        (cx, cy),
+        align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER,
+    )
+
+
 # ── Exportação DXF ─────────────────────────────────────────────
 
 def criar_dxf_chapa(
@@ -295,6 +332,7 @@ def criar_dxf_chapa(
     diametro_furo: float = DIAMETRO_FURO_MM,
     margem_furo  : float = MARGEM_FURO_MM,
     pasta_saida  : str   = ".",
+    nome_produto : str   = "",
 ) -> str:
     """
     Gera um arquivo DXF de uma chapa com geometrias conforme o tipo.
@@ -315,6 +353,7 @@ def criar_dxf_chapa(
     doc.layers.add("FUROS",     color=1)
     doc.layers.add("PEGADORES", color=3)
     doc.layers.add("INFO",      color=8)
+    doc.layers.add("NOME",      color=2)   # amarelo — nome do produto
 
     msp = doc.modelspace()
 
@@ -341,6 +380,7 @@ def criar_dxf_chapa(
         adicionar_pegadores(msp, largura_mm, altura_mm)
 
     adicionar_anotacao(msp, nome_arquivo, largura_mm, altura_mm, espessura_mm)
+    adicionar_nome_produto(msp, nome_produto, largura_mm, altura_mm)
 
     caminho = os.path.join(pasta_saida, f"{nome_arquivo}.dxf")
     doc.saveas(caminho)
@@ -359,6 +399,7 @@ def gerar_dxfs_produto(
     espessura_mm : float = ESPESSURA_PADRAO_MM,
     diametro_furo: float = DIAMETRO_FURO_MM,
     margem_furo  : float = MARGEM_FURO_MM,
+    nome_produto : str   = "",
 ) -> List[str]:
     """
     Gera os 6 DXFs de uma caixa a partir das dimensões do produto.
@@ -381,7 +422,8 @@ def gerar_dxfs_produto(
     print(f"{'='*64}")
 
     opts = dict(espessura_mm=espessura_mm, diametro_furo=diametro_furo,
-                margem_furo=margem_furo, pasta_saida=pasta_saida)
+                margem_furo=margem_furo, pasta_saida=pasta_saida,
+                nome_produto=nome_produto)
     arquivos: List[str] = []
 
     lm_l, lm_a = chapas["lat_menor"]
@@ -412,11 +454,13 @@ def gerar_dxfs_manuais(
     espessura_mm  : float = ESPESSURA_PADRAO_MM,
     diametro_furo : float = DIAMETRO_FURO_MM,
     margem_furo   : float = MARGEM_FURO_MM,
+    nome_produto  : str   = "",
 ) -> List[str]:
     """Gera os 6 DXFs a partir de dimensões informadas manualmente."""
     os.makedirs(pasta_saida, exist_ok=True)
     opts = dict(espessura_mm=espessura_mm, diametro_furo=diametro_furo,
-                margem_furo=margem_furo, pasta_saida=pasta_saida)
+                margem_furo=margem_furo, pasta_saida=pasta_saida,
+                nome_produto=nome_produto)
     arquivos: List[str] = []
 
     for i in (1, 2):
