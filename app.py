@@ -134,6 +134,12 @@ aba_produto, aba_manual = st.tabs([
 # ABA 1 — POR PRODUTO
 # ════════════════════════════════════════════════════════════════
 with aba_produto:
+    nome1 = st.text_input(
+        "🏷️ Nome do produto",
+        placeholder="Ex: MESA DE JANTAR 6 LUGARES",
+        key="nome1",
+    )
+
     st.subheader("Dimensões do produto")
     st.caption("Informe as medidas do item que será embalado.")
 
@@ -178,6 +184,7 @@ with aba_produto:
         fn_gerar=gerar_dxfs_produto,
         produto_c_mm=pC, produto_l_mm=pL, produto_a_mm=pA,
         espessura_mm=esp1, diametro_furo=diam1, margem_furo=marg1,
+        nome_produto=nome1,
     )
 
 
@@ -185,6 +192,12 @@ with aba_produto:
 # ABA 2 — CHAPAS MANUAIS
 # ════════════════════════════════════════════════════════════════
 with aba_manual:
+    nome2 = st.text_input(
+        "🏷️ Nome do produto",
+        placeholder="Ex: SOFÁ 3 LUGARES",
+        key="nome2",
+    )
+
     st.subheader("Dimensões de cada chapa")
     st.caption("Informe as medidas já calculadas de cada peça.")
 
@@ -252,6 +265,7 @@ with aba_manual:
         tampo_l_mm=t_l, tampo_a_mm=t_a,
         base_l_mm=b_l,  base_a_mm=b_a,
         espessura_mm=esp2, diametro_furo=diam2, margem_furo=marg2,
+        nome_produto=nome2,
     )
 
 
